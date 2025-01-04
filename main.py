@@ -7,18 +7,24 @@ from TechburgGrid import TechburgGrid
 from Colors import COLORS
 
 
-
-
 def main():
     root = tk.Tk()
     root.title("Techburg Simulation")
+
+
+    # Simulation parameters
+    GRID_SIZE = 25
+    NUM_STATIONS = 4
+    NUM_BOTS = 6
+    NUM_PARTS = 15
+    NUM_DRONES = 8
 
     # Create main container
     main_container = tk.Frame(root)
     main_container.pack(padx=10, pady=10)
 
     # Create canvas
-    canvas_size = 900
+    canvas_size = 1000
     canvas = tk.Canvas(main_container, width=canvas_size, height=canvas_size, bg='white')
     canvas.pack(side=tk.LEFT)
 
@@ -27,8 +33,13 @@ def main():
     control_panel.pack(side=tk.RIGHT, padx=10)
 
     # Create and initialize the grid
-    grid = TechburgGrid(20)
-    grid.initialize_simulation(num_stations=3, num_bots=5, num_parts=10)
+    grid = TechburgGrid(GRID_SIZE)
+    grid.initialize_simulation(
+        num_stations=NUM_STATIONS,
+        num_bots=NUM_BOTS,
+        num_parts=NUM_PARTS,
+        num_drones=NUM_DRONES
+    )
 
     # Simulation control variables
     simulation_running = tk.BooleanVar(value=False)
@@ -56,7 +67,12 @@ def main():
         start_button.config(text="Start Simulation")
 
         grid.clear_entities()
-        grid.initialize_simulation(num_stations=3, num_bots=5, num_parts=10)
+        grid.initialize_simulation(
+            num_stations=NUM_STATIONS,
+            num_bots=NUM_BOTS,
+            num_parts=NUM_PARTS,
+            num_drones=NUM_DRONES
+        )
         grid.display_tkinter(canvas)
 
     def restart_simulation():
@@ -72,9 +88,11 @@ def main():
         
         grid.clear_entities()
         # Reinitialize with same counts
-        grid.initialize_simulation(num_stations=num_stations, 
-                                 num_bots=num_bots, 
-                                 num_parts=num_parts)
+        grid.initialize_simulation(
+            num_stations=num_stations, 
+            num_bots=num_bots, 
+            num_parts=num_parts
+        )
         grid.display_tkinter(canvas)
 
     # Create control buttons frame
@@ -136,6 +154,8 @@ def main():
     create_legend_item(legend_frame, COLORS["spare_part_small"], "Small Part")
     create_legend_item(legend_frame, COLORS["spare_part_medium"], "Medium Part")
     create_legend_item(legend_frame, COLORS["spare_part_large"], "Large Part")
+    create_legend_item(legend_frame, COLORS["drone"], "Active Drone")
+    create_legend_item(legend_frame, COLORS["drone_hibernating"], "Hibernating Drone")
 
     # Add statistics frame
     stats_frame = tk.LabelFrame(control_panel, text="Statistics", padx=5, pady=5)

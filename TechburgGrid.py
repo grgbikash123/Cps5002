@@ -5,6 +5,8 @@ from RechargeStation import RechargeStation
 import random
 from Colors import COLORS
 
+from Drone import Drone
+
 
 
 class TechburgGrid:
@@ -13,8 +15,9 @@ class TechburgGrid:
         self.stations: List[RechargeStation] = []
         self.bots: List[SurvivorBot] = []
         self.parts: List[SparePart] = []
+        self.drones = []
 
-    def initialize_simulation(self, num_stations: int, num_bots: int, num_parts: int):
+    def initialize_simulation(self, num_stations: int, num_bots: int, num_parts: int, num_drones: int = 2):
         # Place recharge stations
         for _ in range(num_stations):
             x, y = self._get_random_empty_position()
@@ -30,6 +33,15 @@ class TechburgGrid:
             x, y = self._get_random_empty_position()
             size = random.choice(list(PartSize))
             self.parts.append(SparePart(x, y, size))
+
+        # Initialize drones
+        for _ in range(num_drones):
+            while True:
+                x, y = self._get_random_empty_position()
+                if self._is_position_empty(x, y):
+                    self.drones.append(Drone(x, y))
+                    break
+
 
     def _get_random_empty_position(self) -> Tuple[int, int]:
         while True:
@@ -49,10 +61,21 @@ class TechburgGrid:
         self.stations = []
         self.bots = []
         self.parts = []
+        self.drones = []
 
 
     def simulate_step(self):
+        # updates drones
+        for drone in self.drones:
+            drone.update(self.size, self.bots)
+            
+
         for bot in self.bots:
+            if hasattr(bot, 'dropped_part') and bot.dropped_part:
+                if bot.dropped_part not in self.parts:
+                    self.parts.append(bot.dropped_part)
+                bot.dropped_part = None
+
             if bot.energy <= 0:
                 continue
 
@@ -102,7 +125,7 @@ class TechburgGrid:
     def display_tkinter(self, canvas):
         """Display the current state of the grid using Tkinter"""
         canvas.delete("all")  # Clear previous frame
-        cell_size = min(900 // self.size, 900 // self.size)  # Dynamically calculate cell size
+        cell_size = min(1000 // self.size, 1000 // self.size)  # Dynamically calculate cell size
 
         # Calculate font size based on cell size
         font_size = max(4, cell_size // 4)  # Minimum font size of 6
@@ -159,6 +182,24 @@ class TechburgGrid:
             if bot.carried_part:
                 canvas.create_oval(x+8, y+8, x+cell_size-8, y+cell_size-8, 
                                  fill=bot.carried_part.size.value["color"])
+
+
+        # draw drones to tkinter canvas
+        for drone in self.drones:
+            x = drone.x * cell_size
+            y = drone.y * cell_size
+            color = "purple" if drone.is_hibernating else "red"
+            
+            # Draw drone body
+            canvas.create_rectangle(x+2, y+2, x+cell_size-2, y+cell_size-2, 
+                                 fill=color, outline="black")
+            
+            # Show energy level
+            energy_text = f"{int(drone.energy)}%"
+            canvas.create_text(x + cell_size//2, y + cell_size//2, 
+                             text=energy_text, fill="white", 
+                             font=('Arial', max(8, cell_size // 4)))
+
 
         # Update the canvas
         canvas.update()
