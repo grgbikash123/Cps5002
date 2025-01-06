@@ -122,6 +122,7 @@ class TechburgGrid:
             new_y = bot.y + (1 if dy > 0 else -1)
             bot.move(bot.x, new_y, self.size)
 
+
     def display_tkinter(self, canvas):
         """Display the current state of the grid using Tkinter"""
         canvas.delete("all")  # Clear previous frame
@@ -180,8 +181,18 @@ class TechburgGrid:
             
             # If bot is carrying a part, show indicator
             if bot.carried_part:
-                canvas.create_oval(x+8, y+8, x+cell_size-8, y+cell_size-8, 
-                                 fill=bot.carried_part.size.value["color"])
+                carried_part_size = cell_size // 3  # Smaller size for carried parts
+                offset = (cell_size - carried_part_size) // 2
+                canvas.create_oval(x+offset, y+offset, 
+                                x+offset+carried_part_size, y+offset+carried_part_size,
+                                fill=COLORS[f"spare_part_{bot.carried_part.size.name.lower()}"])
+                
+                # Add small indicator that part is being carried
+                canvas.create_text(x + cell_size//2, y + cell_size//2, 
+                                text="↑", fill="white", font=("Arial", max(8, cell_size//4)))
+
+                # canvas.create_oval(x+8, y+8, x+cell_size-8, y+cell_size-8, 
+                #                  fill=bot.carried_part.size.value["color"])
 
 
         # draw drones to tkinter canvas
