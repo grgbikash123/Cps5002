@@ -30,14 +30,14 @@ class Drone(Entity):
         else:  # 40% chance of disable attack
             bot.energy -= 20.0
             bot.drop_part()
-            
+
         # Small energy cost for attacking
         self.energy = max(0, self.energy - 2.0)
 
 
     def update(self, grid_size: int, bots: List[SurvivorBot]) -> None:
         """Update drone's state and behavior"""
-        if self.energy <= self.hibernation_threshold:
+        if self.energy <= self.hibernation_threshold and not self.is_hibernating:
             self.is_hibernating = True
             self.pursuing_bot = None  # Stop pursuit when in hibernation step
             return
@@ -46,24 +46,21 @@ class Drone(Entity):
             self.is_hibernating = False
 
         if self.is_hibernating:
-            self._recharge()
-            return
+            self.energy = min(100.0, self.energy + self.recharge_rate)
+            if self.energy >= 100.0:  # Exit hibernation only when fully charged
+                self.is_hibernating = False
+            return  # Do nothing else while hibernating
 
+        # Normal behavior when not hibernating
         # Look for nearby bots
         nearby_bots = [bot for bot in bots if self.can_detect_bot(bot, grid_size)]
         
-        if nearby_bots and not self.pursuing_bot:
+        if nearby_bots:
             # Start pursuing the closest bot if not already pursuing
             if not self.pursuing_bot:
                 self.pursuing_bot = min(nearby_bots, 
                     key=lambda b: self._calculate_distance(b.x, b.y, grid_size))
                 self.energy -= 20.0  # Energy cost for pursuit
-
-                # Check if pursuit depleted energy below hibernation threshold
-                if self.energy <= self.hibernation_threshold:
-                    self.is_hibernating = True
-                    self.pursuing_bot = None
-                    return
 
             if self.pursuing_bot:
                 if self._calculate_distance(self.pursuing_bot.x, self.pursuing_bot.y, grid_size) <= 1:
@@ -77,6 +74,11 @@ class Drone(Entity):
             # No bots nearby, roam randomly
             self.pursuing_bot = None
             self._roam_randomly(grid_size)
+            # Check if energy dropped below threshold after actions
+        if self.energy <= self.hibernation_threshold:
+            self.is_hibernating = True
+            self.pursuing_bot = None
+
 
     def _recharge(self) -> None:
         """Recharge drone's energy while in hibernation mode"""
