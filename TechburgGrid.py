@@ -18,23 +18,31 @@ class TechburgGrid:
         self.drones = []
 
     def initialize_simulation(self, num_stations: int, num_bots: int, num_parts: int, num_drones: int = 2):
-        # Place recharge stations
+        """
+        This initializes the simulation grid by
+        - placing recharge stations in the grid at random places 
+        - placing survivor bots in the grid at random places
+        - placing the spare parts randomly
+        - placing the drones in the grid
+        """
+
+        # recharge stations
         for _ in range(num_stations):
             x, y = self._get_random_empty_position()
             self.stations.append(RechargeStation(x, y))
 
-        # Place survivor bots
+        # survivor bots
         for _ in range(num_bots):
             x, y = self._get_random_empty_position()
             self.bots.append(SurvivorBot(x, y))
 
-        # Place spare parts
+        # spare parts
         for _ in range(num_parts):
             x, y = self._get_random_empty_position()
             size = random.choice(list(PartSize))
             self.parts.append(SparePart(x, y, size))
 
-        # Initialize drones
+        # drones
         for _ in range(num_drones):
             while True:
                 x, y = self._get_random_empty_position()
@@ -44,6 +52,7 @@ class TechburgGrid:
 
 
     def _get_random_empty_position(self) -> Tuple[int, int]:
+        """ returns two random values x and y between 0 and {size} representing the coordinates in grid"""
         while True:
             x = random.randint(0, self.size - 1)
             y = random.randint(0, self.size - 1)
@@ -51,13 +60,14 @@ class TechburgGrid:
                 return x, y
 
     def _is_position_empty(self, x: int, y: int) -> bool:
+        """ checks if provided coordinats have anything or not """
         for entity in self.stations + self.bots + self.parts:
             if entity.x == x and entity.y == y:
                 return False
         return True
 
     def clear_entities(self):
-        """Clear all entities from the grid"""
+        """ clear all entities from the grid """
         self.stations = []
         self.bots = []
         self.parts = []
@@ -87,7 +97,6 @@ class TechburgGrid:
                     if bot.x == nearest_part.x and bot.y == nearest_part.y:
                         bot.pickup_part(nearest_part)
                         self.parts.remove(nearest_part)
-
             # If carrying a part, find nearest station
             else:
                 nearest_station = self._find_nearest_station(bot)
@@ -122,26 +131,54 @@ class TechburgGrid:
             new_y = bot.y + (1 if dy > 0 else -1)
             bot.move(bot.x, new_y, self.size)
 
+    def restore_from_state(self, state):
+        """ restore grid state from saved state (type: SimulationState) """
+
+        # restore stations
+        for x, y, stored_parts_data in state.stations:
+            station = RechargeStation(x, y)
+            # Recreate stored parts
+            for part_data in stored_parts_data:
+                part = SparePart(part_data.x, part_data.y, part_data.size)
+                station.stored_parts.append(part)
+            self.stations.append(station)
+
+        # restore bots
+        for x, y, energy, carried_part_data in state.bots:
+            bot = SurvivorBot(x, y)
+            bot.energy = energy
+            if carried_part_data:
+                # recreate carried part if it exists
+                carried_part = SparePart(carried_part_data.x, carried_part_data.y, carried_part_data.size)
+                bot.carried_part = carried_part
+            self.bots.append(bot)
+
+        # restore parts
+        for x, y, size in state.parts:
+            # convert size string to PartSize enum if needed
+            if isinstance(size, str):
+                size = PartSize[size.upper()]
+            part = SparePart(x, y, size)
+            self.parts.append(part)
+
+        # restore drones
+        for x, y, energy, is_hibernating in state.drones:
+            drone = Drone(x, y)
+            drone.energy = energy
+            drone.is_hibernating = is_hibernating
+            self.drones.append(drone)
 
     def display_tkinter(self, canvas):
         """Display the current state of the grid using Tkinter"""
-        canvas.delete("all")  # Clear previous frame
-        cell_size = min(1000 // self.size, 1000 // self.size)  # Dynamically calculate cell size
-
-        # Calculate font size based on cell size
-        font_size = max(4, cell_size // 4)  # Minimum font size of 6
-        small_font = ('Arial', font_size)
+        canvas.delete("all")  # clear previous frame
+        cell_size = min(1000 // self.size, 1000 // self.size)  # calculate cell size
         
-        # Draw empty grid
-        for i in range(self.size):
-            for j in range(self.size):
-                x1, y1 = i * cell_size, j * cell_size
-                x2, y2 = x1 + cell_size, y1 + cell_size
-                canvas.create_rectangle(x1, y1, x2, y2, 
-                                     fill=COLORS["empty"],
-                                     outline="gray")
+        # empty grid
+        for i in range(self.size + 1):
+            canvas.create_line(i * cell_size, 0, i * cell_size, self.size * cell_size)
+            canvas.create_line(0, i * cell_size, self.size * cell_size, i * cell_size)
 
-        # Draw parts with size-based colors
+        # parts with size-based colors
         for part in self.parts:
             x = part.x * cell_size
             y = part.y * cell_size
@@ -149,13 +186,13 @@ class TechburgGrid:
             canvas.create_oval(x+4, y+4, x+cell_size-4, y+cell_size-4, 
                              fill=color,
                              outline="black")
-            # Add size indicator
-            size_text = part.size.name[0]  # First letter of size (S/M/L)
+            # size indicator for the spare parts
+            size_text = part.size.name[0]  # first letter of size (S/M/L) - (SMALL/MEDIUM/Large)
             canvas.create_text(x + cell_size//2, y + cell_size//2, 
                              text=size_text, fill="black")
 
 
-        # Draw stations
+        # create stations in the grid
         for station in self.stations:
             x = station.x * cell_size
             y = station.y * cell_size
@@ -166,33 +203,40 @@ class TechburgGrid:
             canvas.create_text(x + cell_size//2, y + cell_size//2, 
                              text=str(num_parts), fill="white")
 
-        # Draw bots
+        # create bots in the grid
         for bot in self.bots:
             x = bot.x * cell_size
             y = bot.y * cell_size
-            # Draw bot
+
+            # oval shaped bots
             canvas.create_oval(x+2, y+2, x+cell_size-2, y+cell_size-2, 
                              fill=COLORS["bot"])
-            
-            # Show energy level
+
+            # put the energy level on the bot
             energy_text = f"{int(bot.energy)}%"
             canvas.create_text(x + cell_size//2, y + cell_size//2, 
                              text=energy_text, fill="white")
             
-            # If bot is carrying a part, show indicator
+            # If bot is carrying a part, show indicator by putting orange colored border around the survivor bot
             if bot.carried_part:
-                carried_part_size = cell_size // 3  # Smaller size for carried parts
-                offset = (cell_size - carried_part_size) // 2
-                canvas.create_oval(x+offset, y+offset, 
-                                x+offset+carried_part_size, y+offset+carried_part_size,
-                                fill=COLORS[f"spare_part_{bot.carried_part.size.name.lower()}"])
-                
-                # Add small indicator that part is being carried
-                canvas.create_text(x + cell_size//2, y + cell_size//2, 
-                                text="↑", fill="white", font=("Arial", max(8, cell_size//4)))
+                # thick highlighted border for bots carrying parts
+                # outer border (highlight)
+                border_width = 3
+                canvas.create_rectangle(x, y, x+cell_size, y+cell_size, 
+                                  outline="orange", width=border_width+1)
 
-                # canvas.create_oval(x+8, y+8, x+cell_size-8, y+cell_size-8, 
-                #                  fill=bot.carried_part.size.value["color"])
+                # inner bot rectangle
+                canvas.create_rectangle(x+2, y+2, x+cell_size-2, y+cell_size-2, 
+                                  fill=COLORS["bot"], outline="black", width=1)
+                
+            else:
+                # Normal bot without carried part
+                canvas.create_rectangle(x+2, y+2, x+cell_size-2, y+cell_size-2, 
+                                    fill=COLORS["bot"], outline="black", width=1)
+
+
+            canvas.create_text(x + cell_size//2, y + cell_size//2, 
+                            text=energy_text, fill="white", font=("Arial", max(8, cell_size//4)))
 
 
         # draw drones to tkinter canvas
@@ -201,17 +245,16 @@ class TechburgGrid:
             y = drone.y * cell_size
             color = "purple" if drone.is_hibernating else "red"
             
-            # Draw drone body
+            # drone
             canvas.create_rectangle(x+2, y+2, x+cell_size-2, y+cell_size-2, 
                                  fill=color, outline="black")
             
-            # Show energy level
+            # energy level for drone
             energy_text = f"{int(drone.energy)}%"
             canvas.create_text(x + cell_size//2, y + cell_size//2, 
                              text=energy_text, fill="white", 
                              font=('Arial', max(8, cell_size // 4)))
 
 
-        # Update the canvas
         canvas.update()
 
