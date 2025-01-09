@@ -27,9 +27,16 @@ class TechburgGrid:
         """
 
         # recharge stations
-        for _ in range(num_stations):
-            x, y = self._get_random_empty_position()
+        # for _ in range(num_stations):
+        #     x, y = self._get_random_empty_position()
+        #     self.stations.append(RechargeStation(x, y))
+
+        station_spacing = self.size // num_stations
+        for i in range(num_stations):
+            x = i * station_spacing + station_spacing // 2  # Evenly space stations
+            y = self.size - 1  # Last row
             self.stations.append(RechargeStation(x, y))
+
 
         # survivor bots
         for _ in range(num_bots):

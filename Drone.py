@@ -24,11 +24,11 @@ class Drone(Entity):
         # choosing randomly which type of attack to be done
         attack_type = random.random()
         
-        if attack_type < 0.6:  # 60% chance of shock attack
-            bot.energy -= 5.0
+        if attack_type < 0.6:   # 60% chance of shock attack
+            bot.energy = max(0, bot.energy - 5.0)   # Shock attack: -5% energy, prevent negative
             bot.drop_part()
         else:  # 40% chance of disable attack
-            bot.energy -= 20.0
+            bot.energy = max(0, bot.energy - 20.0)  # Disable attack: -20% energy, prevent negative
             bot.drop_part()
 
         # small energy cost for attacking

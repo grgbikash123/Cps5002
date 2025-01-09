@@ -21,7 +21,7 @@ def main():
 
 
     # simulation parameters
-    GRID_SIZE = 25
+    GRID_SIZE = 30
     NUM_STATIONS = 4
     NUM_BOTS = 6
     NUM_PARTS = 15
