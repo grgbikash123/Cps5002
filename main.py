@@ -8,17 +8,17 @@ from Colors import COLORS
 
 
 class SimulationState:
-    def __init__(self, stations, bots, parts, drones, step_count):
+    def __init__(self, stations, bots, parts, drones, swarms, step_count):
         self.stations = [(s.x, s.y, [p for p in s.stored_parts]) for s in stations]
         self.bots = [(b.x, b.y, b.energy, b.carried_part) for b in bots]
         self.parts = [(p.x, p.y, p.size) for p in parts]
         self.drones = [(d.x, d.y, d.energy, d.is_hibernating) for d in drones]
+        self.swarms = [(s.x, s.y, s.size, s.consumed_material) for s in swarms]
         self.step_count = step_count
 
 def main():
     root = tk.Tk()
     root.title("Techburg Simulation")
-
 
     # simulation parameters
     GRID_SIZE = 30
@@ -26,13 +26,12 @@ def main():
     NUM_BOTS = 6
     NUM_PARTS = 15
     NUM_DRONES = 8
+    NUM_SWARMS = 7
 
     # history lists for both backward and forward states
     MAX_HISTORY = 10  # number of steps upto which it is to be recorded
     backward_history = []
     forward_history = []
-
-
 
     main_container = tk.Frame(root)
     main_container.pack(padx=10, pady=10)
@@ -51,7 +50,8 @@ def main():
         num_stations=NUM_STATIONS,
         num_bots=NUM_BOTS,
         num_parts=NUM_PARTS,
-        num_drones=NUM_DRONES
+        num_drones=NUM_DRONES,
+        num_swarms=NUM_SWARMS
     )
 
     simulation_running = tk.BooleanVar(value=False)
@@ -63,7 +63,14 @@ def main():
         """Save current state to backward history"""
         if len(backward_history) >= MAX_HISTORY:   # if the backward history is full then remove the oldest one
             backward_history.pop(0)
-        current_state = SimulationState(grid.stations, grid.bots, grid.parts, grid.drones, step_count.get())
+        current_state = SimulationState(
+            grid.stations, 
+            grid.bots, 
+            grid.parts, 
+            grid.drones,
+            grid.swarms,
+            step_count.get()
+            )
         backward_history.append(current_state)
         forward_history.clear()
 
@@ -98,7 +105,8 @@ def main():
             num_stations=NUM_STATIONS,
             num_bots=NUM_BOTS,
             num_parts=NUM_PARTS,
-            num_drones=NUM_DRONES
+            num_drones=NUM_DRONES,
+            num_swarms=NUM_SWARMS
         )
         grid.display_tkinter(canvas)
 
@@ -112,7 +120,14 @@ def main():
         start_button.config(text="Start Simulation")
         
         # save current state to forward history
-        current_state = SimulationState(grid.stations, grid.bots, grid.parts, grid.drones, step_count.get())
+        current_state = SimulationState(
+            grid.stations,
+            grid.bots,
+            grid.parts,
+            grid.drones,
+            grid.swarms,
+            step_count.get()
+            )
         if len(forward_history) >= MAX_HISTORY:
             forward_history.pop(0)
         forward_history.append(current_state)
@@ -124,7 +139,7 @@ def main():
         step_count.set(previous_state.step_count)
         grid.display_tkinter(canvas)
         
-        # Update button states
+        # update button states
         step_back_button.config(state='normal' if backward_history else 'disabled')
         step_forward_button.config(state='normal' if forward_history else 'disabled')
 
@@ -138,7 +153,14 @@ def main():
         start_button.config(text="Start Simulation")
         
         # save current state to backward history
-        current_state = SimulationState(grid.stations, grid.bots, grid.parts, grid.drones, step_count.get())
+        current_state = SimulationState(
+            grid.stations,
+            grid.bots,
+            grid.parts,
+            grid.drones,
+            grid.swarms,
+            step_count.get()
+            )
         if len(backward_history) >= MAX_HISTORY:
             backward_history.pop(0)
         backward_history.append(current_state)
@@ -235,12 +257,14 @@ def main():
     stored_parts = tk.StringVar(value="Stored Parts: 0")
     active_drones = tk.StringVar(value="Active Drones: 0")
     hibernating_drones = tk.StringVar(value="Hibernating Drones: 0")
+    swarm_count = tk.StringVar(value="Swarms: 0")
 
     tk.Label(stats_frame, textvariable=bot_count).pack(anchor="w")
     tk.Label(stats_frame, textvariable=parts_count).pack(anchor="w")
     tk.Label(stats_frame, textvariable=stored_parts).pack(anchor="w")
     tk.Label(stats_frame, textvariable=active_drones).pack(anchor="w")
     tk.Label(stats_frame, textvariable=hibernating_drones).pack(anchor="w")
+    tk.Label(stats_frame, textvariable=swarm_count).pack(anchor="w")
 
     def update_stats():
         total_stored = sum(len(station.stored_parts) for station in grid.stations)
@@ -252,7 +276,8 @@ def main():
         stored_parts.set(f"Stored Parts: {total_stored}")
         active_drones.set(f"Active Drones: {active_drone_count}")
         hibernating_drones.set(f"Hibernating Drones: {hibernating_drone_count}")
-        
+        swarm_count.set(f"Swarms: {len(grid.swarms)}")
+
         root.after(100, update_stats)
 
     # start updating stats

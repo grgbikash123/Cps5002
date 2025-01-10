@@ -6,6 +6,7 @@ import random
 from Colors import COLORS
 
 from Drone import Drone
+from ScavengerSwarm import ScavengerSwarm
 
 
 
@@ -16,8 +17,14 @@ class TechburgGrid:
         self.bots: List[SurvivorBot] = []
         self.parts: List[SparePart] = []
         self.drones = []
+        self.swarms = []
 
-    def initialize_simulation(self, num_stations: int, num_bots: int, num_parts: int, num_drones: int = 2):
+    def initialize_simulation(self, num_stations: int, 
+                            num_bots: int, 
+                            num_parts: int, 
+                            num_swarms: int,
+                            num_drones: int = 2
+                            ):
         """
         This initializes the simulation grid by
         - placing recharge stations in the grid at random places 
@@ -51,11 +58,21 @@ class TechburgGrid:
 
         # drones
         for _ in range(num_drones):
-            while True:
-                x, y = self._get_random_empty_position()
-                if self._is_position_empty(x, y):
-                    self.drones.append(Drone(x, y))
-                    break
+            x, y = self._get_random_empty_position()
+            self.drones.append(Drone(x, y))
+
+        # for _ in range(num_drones):
+        #     while True:
+        #         x, y = self._get_random_empty_position()
+        #         if self._is_position_empty(x, y):
+        #             self.drones.append(Drone(x, y))
+        #             break
+
+        # swarms
+        for _ in range(num_swarms):
+            x, y = self._get_random_empty_position()
+            self.swarms.append(ScavengerSwarm(x, y))
+
 
 
     def _get_random_empty_position(self) -> Tuple[int, int]:
@@ -79,9 +96,57 @@ class TechburgGrid:
         self.bots = []
         self.parts = []
         self.drones = []
+        self.swarms = []
 
 
     def simulate_step(self):
+
+        # swarm decay field 
+        for swarm in self.swarms:
+            # Move swarm
+            swarm.update(self.size, self.parts, self.bots, self.drones, self.swarms)
+
+            for bot in self.bots:
+                if bot.energy > 0:  # Only affect active bots
+                    # Check if bot is within decay range (1 cell)
+                    dx = min(abs(swarm.x - bot.x), self.size - abs(swarm.x - bot.x))
+                    dy = min(abs(swarm.y - bot.y), self.size - abs(swarm.y - bot.y))
+                    if max(dx, dy) <= 1:  # Within 1 cell range
+                        bot.reduce_energy(3.0)  # 3% energy loss per step
+
+            # Apply decay to drones too
+            for drone in self.drones:
+                if not drone.is_hibernating:  # Only affect active drones
+                    dx = min(abs(swarm.x - drone.x), self.size - abs(swarm.x - drone.x))
+                    dy = min(abs(swarm.y - drone.y), self.size - abs(swarm.y - drone.y))
+                    if max(dx, dy) <= 1:
+                        drone.energy = max(0, drone.energy - 3.0)  # 3% energy loss per step
+
+            # Check for swarm merging
+            for other_swarm in self.swarms:
+                if swarm != other_swarm:
+                    dx = min(abs(swarm.x - other_swarm.x), self.size - abs(swarm.x - other_swarm.x))
+                    dy = min(abs(swarm.y - other_swarm.y), self.size - abs(swarm.y - other_swarm.y))
+                    if max(dx, dy) <= 1:  # Adjacent swarms
+                        # Merge swarms
+                        swarm.size += other_swarm.size
+                        swarm.consumed_material += other_swarm.consumed_material
+                        self.swarms.remove(other_swarm)
+                        break  # Only merge with one swarm per step
+
+            # Check for replication
+            if swarm.consumed_material >= swarm.replication_threshold:
+                # Create new swarm in adjacent cell
+                x = (swarm.x + random.randint(-1, 1)) % self.size
+                y = (swarm.y + random.randint(-1, 1)) % self.size
+                if self._is_position_empty(x, y):
+                    new_swarm = ScavengerSwarm(x, y)
+                    self.swarms.append(new_swarm)
+                    swarm.consumed_material -= swarm.replication_threshold
+
+        # Remove inactive bots that have been at 0 energy for too long
+        self.bots = [bot for bot in self.bots if bot.energy > 0]
+
         # updates drones
         for drone in self.drones:
             drone.update(self.size, self.bots)
@@ -128,15 +193,21 @@ class TechburgGrid:
         return (dx ** 2 + dy ** 2) ** 0.5
 
     def _move_towards(self, bot: SurvivorBot, target_x: int, target_y: int):
+
+        if bot.energy <= 0:
+            return  # Don't move if no energy
+
         dx = (target_x - bot.x + self.size // 2) % self.size - self.size // 2
         dy = (target_y - bot.y + self.size // 2) % self.size - self.size // 2
         
         if abs(dx) > abs(dy):
             new_x = bot.x + (1 if dx > 0 else -1)
-            bot.move(new_x, bot.y, self.size)
+            if bot.has_enough_energy_for_move():  # Check before moving
+                bot.move(new_x, bot.y, self.size)
         else:
             new_y = bot.y + (1 if dy > 0 else -1)
-            bot.move(bot.x, new_y, self.size)
+            if bot.has_enough_energy_for_move():  # Check before moving
+                bot.move(bot.x, new_y, self.size)
 
     def restore_from_state(self, state):
         """ restore grid state from saved state (type: SimulationState) """
@@ -174,6 +245,13 @@ class TechburgGrid:
             drone.energy = energy
             drone.is_hibernating = is_hibernating
             self.drones.append(drone)
+
+        # restore swarms
+        for x, y, size, consumed_material in state.swarms:
+            swarm = ScavengerSwarm(x, y)
+            swarm.size = size
+            swarm.consumed_material = consumed_material
+            self.swarms.append(swarm)
 
     def display_tkinter(self, canvas):
         """Display the current state of the grid using Tkinter"""
@@ -261,6 +339,29 @@ class TechburgGrid:
             canvas.create_text(x + cell_size//2, y + cell_size//2, 
                              text=energy_text, fill="white", 
                              font=('Arial', max(8, cell_size // 4)))
+
+        # draw swarms in grid
+        for swarm in self.swarms:
+            x = swarm.x * cell_size
+            y = swarm.y * cell_size
+            
+            # Draw swarm body
+            canvas.create_rectangle(x+2, y+2, x+cell_size-2, y+cell_size-2, 
+                                fill=COLORS["swarm"], outline="black")
+            
+            # Show swarm size
+            canvas.create_text(x + cell_size//2, y + cell_size//2, 
+                            text=str(swarm.size), fill="white", 
+                            font=('Arial', max(8, cell_size // 4)))
+
+            # Draw decay field indicator (semi-transparent circle)
+            decay_radius = cell_size * 1.5  # Visual indicator for 1-cell decay range
+            canvas.create_oval(x + cell_size//2 - decay_radius, 
+                            y + cell_size//2 - decay_radius,
+                            x + cell_size//2 + decay_radius, 
+                            y + cell_size//2 + decay_radius,
+                            fill='', outline=COLORS["swarm"], 
+                            stipple='gray50')  # Makes the circle semi-transparent
 
 
         canvas.update()

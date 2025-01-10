@@ -7,4 +7,6 @@ COLORS = {
     "spare_part_large": "dark orange",
     "drone": "red",
     "drone_hibernating": "purple",
+    "swarm": "#c57fe3",
+    "swarm_large": "#8947a6"
 }
