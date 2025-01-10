@@ -3,6 +3,7 @@ from SparePart import SparePart
 from RechargeStation import RechargeStation
 
 
+
 class SurvivorBot(Entity):
     def __init__(self, x: int, y: int):
         super().__init__(x, y)
@@ -11,7 +12,7 @@ class SurvivorBot(Entity):
         self.target_part = None
         self.target_station = None
         self.movement_energy_cost = 5.0
-
+        self.critical_energy_threshold = 5.0
 
     def reduce_energy(self, amount: float) -> None:
         """Safely reduce bot's energy ensuring it doesn't go below 0"""
@@ -20,6 +21,22 @@ class SurvivorBot(Entity):
     def has_enough_energy_for_move(self) -> bool:
         """Check if bot has enough energy for movement"""
         return self.energy >= self.movement_energy_cost
+
+    def is_critical_energy(self) -> bool:
+        """Check if bot is in critical energy state"""
+        return self.energy <= self.critical_energy_threshold
+
+    def recharge(self, amount: float) -> None:
+        """Safely recharge bot's energy"""
+        self.energy = min(100.0, self.energy + amount)
+
+    def store_part_at_station(self, station: RechargeStation) -> bool:
+        """Attempt to store carried part at station"""
+        if self.carried_part and station.can_store_part():
+            station.store_part(self.carried_part)
+            self.carried_part = None
+            return True
+        return False
 
     def move(self, new_x: int, new_y: int, grid_size: int):
         """ implements wrapping around edges """

@@ -100,6 +100,40 @@ class TechburgGrid:
 
 
     def simulate_step(self):
+        # Handle recharging at stations first
+        for station in self.stations:
+            # Find all bots at this station
+            bots_at_station = [bot for bot in self.bots 
+                            if bot.x == station.x and bot.y == station.y]
+            
+            for bot in bots_at_station:
+                if bot.carried_part:
+                    # Store part if bot is carrying one
+                    if len(station.stored_parts) < 5:  # Max 5 parts per station
+                        station.stored_parts.append(bot.carried_part)
+                        bot.carried_part = None
+
+                # Critical energy case (≤ 5%) - prioritize consuming parts
+                if bot.energy <= 5.0 and station.stored_parts:
+                    # Get the smallest part first (most efficient use)
+                    part = min(station.stored_parts, 
+                            key=lambda p: p.size.value)
+                    
+                    # Apply energy restoration based on part size
+                    if part.size == PartSize.SMALL:
+                        bot.energy = min(100.0, bot.energy + 1.0)
+                    elif part.size == PartSize.MEDIUM:
+                        bot.energy = min(100.0, bot.energy + 2.0)
+                    else:  # LARGE
+                        bot.energy = min(100.0, bot.energy + 3.0)
+                    
+                    # Remove part if fully consumed (when bot reaches full energy)
+                    if bot.energy >= 100.0:
+                        station.stored_parts.remove(part)
+                
+                # Regular recharge (1% per step) when not critical
+                else:
+                    bot.energy = min(100.0, bot.energy + 1.0)
 
         # swarm decay field 
         for swarm in self.swarms:
@@ -151,6 +185,7 @@ class TechburgGrid:
         for drone in self.drones:
             drone.update(self.size, self.bots)
             
+
 
         for bot in self.bots:
             if hasattr(bot, 'dropped_part') and bot.dropped_part:
