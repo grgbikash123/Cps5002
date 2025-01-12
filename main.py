@@ -29,7 +29,7 @@ def main():
     NUM_SWARMS = 7
 
     # history lists for both backward and forward states
-    MAX_HISTORY = 10  # number of steps upto which it is to be recorded
+    MAX_HISTORY = 30  # number of steps upto which it is to be recorded
     backward_history = []
     forward_history = []
 
@@ -100,6 +100,11 @@ def main():
         simulation_running.set(False)
         start_button.config(text="Start Simulation")
 
+        # Clear all stored states
+        backward_history.clear()
+        forward_history.clear()
+
+
         grid.clear_entities()
         grid.initialize_simulation(
             num_stations=NUM_STATIONS,
@@ -110,6 +115,10 @@ def main():
         )
         grid.display_tkinter(canvas)
 
+        step_back_button.config(state='disabled')
+        step_forward_button.config(state='disabled')
+
+        
     def step_back():
         """Move one step backward in simulation"""
         if not backward_history:

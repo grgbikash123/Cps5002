@@ -102,39 +102,47 @@ class TechburgGrid:
     def simulate_step(self):
         # Handle recharging at stations first
         for station in self.stations:
+
+            # Check for drones at station
+            drones_at_station = [drone for drone in self.drones 
+                               if drone.x == station.x and drone.y == station.y]
+
             # Find all bots at this station
             bots_at_station = [bot for bot in self.bots 
                             if bot.x == station.x and bot.y == station.y]
             
             for bot in bots_at_station:
-                if bot.carried_part:
-                    # Store part if bot is carrying one
-                    if len(station.stored_parts) < 5:  # Max 5 parts per station
-                        station.stored_parts.append(bot.carried_part)
-                        bot.carried_part = None
+                # If drone present, bot should move to safety
+                if drones_at_station:
+                    # Find safe adjacent position
+                    safe_pos = self._find_safe_position(bot.x, bot.y)
+                    if safe_pos:
+                        bot.move(safe_pos[0], safe_pos[1], self.size)
+                    continue
 
-                # Critical energy case (≤ 5%) - prioritize consuming parts
-                if bot.energy <= 5.0 and station.stored_parts:
-                    # Get the smallest part first (most efficient use)
-                    part = min(station.stored_parts, 
-                            key=lambda p: p.size.value)
-                    
-                    # Apply energy restoration based on part size
-                    if part.size == PartSize.SMALL:
-                        bot.energy = min(100.0, bot.energy + 1.0)
-                    elif part.size == PartSize.MEDIUM:
-                        bot.energy = min(100.0, bot.energy + 2.0)
-                    else:  # LARGE
-                        bot.energy = min(100.0, bot.energy + 3.0)
-                    
-                    # Remove part if fully consumed (when bot reaches full energy)
-                    if bot.energy >= 100.0:
+                if bot.carried_part and station.can_store_part():  # Max 5 parts per station
+                        bot.deposit_part(station)
+                        
+                # Critical energy case (≤ 5%) - consume parts immediately
+                if bot.is_critical_energy() and station.stored_parts:
+                    part = station.get_smallest_part()
+                    if part:
+                        # Enhance energy capacity
+                        bot.enhance_energy(part)
+                        energy_restore = part.size.value["energy"] * 100
+                        bot.recharge(energy_restore)
                         station.stored_parts.remove(part)
-                
+                    
                 # Regular recharge (1% per step) when not critical
-                else:
-                    bot.energy = min(100.0, bot.energy + 1.0)
-
+                elif bot.needs_rest():
+                    if not bot.resting:
+                        bot.start_resting()
+                    if bot.rest_at_station():  # If True, bot has finished resting
+                        # Move away from station after resting
+                        safe_pos = self._find_safe_position(bot.x, bot.y)
+                        if safe_pos:
+                            bot.move(safe_pos[0], safe_pos[1], self.size)
+                
         # swarm decay field 
         for swarm in self.swarms:
             # Move swarm
@@ -193,7 +201,7 @@ class TechburgGrid:
                     self.parts.append(bot.dropped_part)
                 bot.dropped_part = None
 
-            if bot.energy <= 0:
+            if bot.resting or bot.energy <= 0:
                 continue
 
             # Find nearest part if not carrying one
@@ -215,6 +223,29 @@ class TechburgGrid:
             # Corrode parts
             for part in self.parts:
                 part.corrode()
+
+
+    def _find_safe_position(self, x: int, y: int) -> Optional[Tuple[int, int]]:
+        """Find a safe position adjacent to the given coordinates"""
+        directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+        random.shuffle(directions)  # Randomize direction choices
+        
+        for dx, dy in directions:
+            new_x = (x + dx) % self.size
+            new_y = (y + dy) % self.size
+            
+            # Check if position is safe (no drones nearby)
+            if not any(self._is_drone_nearby(new_x, new_y, drone) 
+                      for drone in self.drones):
+                return (new_x, new_y)
+        return None
+
+    def _is_drone_nearby(self, x: int, y: int, drone: Drone) -> bool:
+        """Check if a drone is within one cell of the given position"""
+        dx = min(abs(x - drone.x), self.size - abs(x - drone.x))
+        dy = min(abs(y - drone.y), self.size - abs(y - drone.y))
+        return max(dx, dy) <= 1
+    
 
     def _find_nearest_part(self, bot: SurvivorBot) -> Optional[SparePart]:
         return min(self.parts, key=lambda p: self._calculate_distance(bot.x, bot.y, p.x, p.y), default=None)

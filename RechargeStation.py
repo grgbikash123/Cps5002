@@ -1,13 +1,13 @@
 from Entity import Entity
 from SparePart import SparePart
-from typing import Optional
+from typing import List, Optional
 
 
 class RechargeStation(Entity):
     def __init__(self, x: int, y: int):
         super().__init__(x, y)
         self.stored_parts: List[SparePart] = []
-        self.current_bots: List['SurvivorBot'] = []
+        self.current_bots: List[SurvivorBot] = []
         self.max_bots = 5
         self.max_parts = 5
 
@@ -30,4 +30,4 @@ class RechargeStation(Entity):
         """Get the smallest available part for consumption"""
         if not self.stored_parts:
             return None
-        return min(self.stored_parts, key=lambda p: p.size.value["enhancement"])
+        return min(self.stored_parts, key=lambda p: p.size.value["boost"])

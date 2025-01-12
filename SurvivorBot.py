@@ -1,3 +1,4 @@
+from typing import Optional
 from Entity import Entity
 from SparePart import SparePart
 from RechargeStation import RechargeStation
@@ -14,6 +15,46 @@ class SurvivorBot(Entity):
         self.movement_energy_cost = 5.0
         self.critical_energy_threshold = 5.0
 
+        self.energy_enhancement = 0.0
+        self.base_max_energy = 100.0
+        self.max_energy = self.base_max_energy
+
+        self.resting = False
+        self.rest_energy_threshold = 60.0 # Start resting if energy below 50%
+        self.regen_rate = 1.0            # 1% regeneration per step
+        self.rest_energy_target = 0.0
+
+    def needs_rest(self) -> bool:
+        """Check if bot needs to rest (energy < 50%)"""
+        return self.energy < self.rest_energy_threshold
+
+    def start_resting(self) -> None:
+        """Start resting and set target energy level (current + 20%)"""
+        self.resting = True
+        self.rest_energy_target = self.rest_energy_threshold
+
+    def rest_at_station(self) -> bool:
+        """
+        Regenerate energy while resting at station
+        Returns True if target energy is reached
+        """
+        if self.energy < self.rest_energy_target:
+            self.energy = min(self.rest_energy_threshold, self.energy + self.regen_rate)
+            return False
+        self.resting = False
+        return True
+    
+    def enhance_energy(self, part: SparePart) -> bool:
+        """Enhance bot's energy capacity using a spare part"""
+        if part:
+            # Apply enhancement to max energy capacity
+            self.energy_enhancement += part.enhancement_value
+            self.max_energy = self.base_max_energy * (1 + self.energy_enhancement)
+            return True
+        return False
+
+
+
     def reduce_energy(self, amount: float) -> None:
         """Safely reduce bot's energy ensuring it doesn't go below 0"""
         self.energy = max(0, self.energy - amount)
@@ -28,7 +69,7 @@ class SurvivorBot(Entity):
 
     def recharge(self, amount: float) -> None:
         """Safely recharge bot's energy"""
-        self.energy = min(100.0, self.energy + amount)
+        self.energy = min(self.max_energy, self.energy + amount)
 
     def store_part_at_station(self, station: RechargeStation) -> bool:
         """Attempt to store carried part at station"""
