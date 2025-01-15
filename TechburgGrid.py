@@ -61,13 +61,6 @@ class TechburgGrid:
             x, y = self._get_random_empty_position()
             self.drones.append(Drone(x, y))
 
-        # for _ in range(num_drones):
-        #     while True:
-        #         x, y = self._get_random_empty_position()
-        #         if self._is_position_empty(x, y):
-        #             self.drones.append(Drone(x, y))
-        #             break
-
         # swarms
         for _ in range(num_swarms):
             x, y = self._get_random_empty_position()
@@ -127,8 +120,6 @@ class TechburgGrid:
                 if bot.is_critical_energy() and station.stored_parts:
                     part = station.get_smallest_part()
                     if part:
-                        # Enhance energy capacity
-                        bot.enhance_energy(part)
                         energy_restore = part.size.value["energy"] * 100
                         bot.recharge(energy_restore)
                         station.stored_parts.remove(part)
@@ -268,11 +259,11 @@ class TechburgGrid:
         
         if abs(dx) > abs(dy):
             new_x = bot.x + (1 if dx > 0 else -1)
-            if bot.has_enough_energy_for_move():  # Check before moving
+            if bot.has_enough_energy_for_move():
                 bot.move(new_x, bot.y, self.size)
         else:
             new_y = bot.y + (1 if dy > 0 else -1)
-            if bot.has_enough_energy_for_move():  # Check before moving
+            if bot.has_enough_energy_for_move():
                 bot.move(bot.x, new_y, self.size)
 
     def restore_from_state(self, state):

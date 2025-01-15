@@ -28,8 +28,16 @@ class SurvivorBot(Entity):
         """Check if bot needs to rest (energy < 50%)"""
         return self.energy < self.rest_energy_threshold
 
+    def has_enough_energy_for_move(self) -> bool:
+        """Check if bot has enough energy for movement"""
+        return self.energy >= self.movement_energy_cost
+
+    def is_critical_energy(self) -> bool:
+        """Check if bot is in critical energy state"""
+        return self.energy <= self.critical_energy_threshold
+
     def start_resting(self) -> None:
-        """Start resting and set target energy level (current + 20%)"""
+        """Start resting and set target energy level"""
         self.resting = True
         self.rest_energy_target = self.rest_energy_threshold
 
@@ -43,29 +51,11 @@ class SurvivorBot(Entity):
             return False
         self.resting = False
         return True
-    
-    def enhance_energy(self, part: SparePart) -> bool:
-        """Enhance bot's energy capacity using a spare part"""
-        if part:
-            # Apply enhancement to max energy capacity
-            self.energy_enhancement += part.enhancement_value
-            self.max_energy = self.base_max_energy * (1 + self.energy_enhancement)
-            return True
-        return False
-
-
 
     def reduce_energy(self, amount: float) -> None:
         """Safely reduce bot's energy ensuring it doesn't go below 0"""
-        self.energy = max(0, self.energy - amount)
+        self.energy = max(0.0, self.energy - amount)
 
-    def has_enough_energy_for_move(self) -> bool:
-        """Check if bot has enough energy for movement"""
-        return self.energy >= self.movement_energy_cost
-
-    def is_critical_energy(self) -> bool:
-        """Check if bot is in critical energy state"""
-        return self.energy <= self.critical_energy_threshold
 
     def recharge(self, amount: float) -> None:
         """Safely recharge bot's energy"""
